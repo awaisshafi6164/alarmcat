@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/alarm_category.dart';
-import '../pages/home_page.dart'; // Import initialCategories
+import '../services/database_helper.dart';
 
 class AddAlarmPage extends StatefulWidget {
   const AddAlarmPage({super.key});
@@ -13,6 +13,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
   TimeOfDay? selectedTime;
   String label = '';
   AlarmCategory? selectedCategory;
+  List<AlarmCategory> categories = [];
   List<String> repeatDays = [];
   String ringtone = 'Default';
   bool vibration = true;
@@ -21,24 +22,94 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
   String snooze = '5 minutes';
   String note = '';
 
-  final List<String> allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final List<String> allDays = [
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun',
+  ];
   final List<String> snoozeOptions = ['5 minutes', '10 minutes', '15 minutes'];
-  final List<String> ringtones = ['Default', 'Beep', 'Melody']; // Placeholder ringtones
+  final List<String> ringtones = [
+    'Default',
+    'Beep',
+    'Melody',
+  ]; // Placeholder ringtones
 
   @override
   void initState() {
     super.initState();
-    // Initialize selectedCategory with the first category as a default, or null
-    selectedCategory = initialCategories.isNotEmpty ? initialCategories.first : null;
+    _loadCategoriesFromDb();
+  }
+
+  Future<void> _loadCategoriesFromDb() async {
+    final db = await DatabaseHelper().db;
+    final List<Map<String, dynamic>> maps = await db.query('categories');
+    final loaded = maps
+        .map(
+          (map) => AlarmCategory(
+            name: map['name'],
+            emoji: map['emoji'],
+            icon: null, // You can add icon logic if you store it
+            color: Colors.primaries[map['id'] % Colors.primaries.length],
+            enabled: map['enabled'] == 1,
+          ),
+        )
+        .toList();
+    setState(() {
+      categories = loaded;
+      selectedCategory = categories.isNotEmpty ? categories.first : null;
+    });
+  }
+
+  // 3. When adding an alarm, set enabled: 1
+  Future<void> _addAlarmToDb() async {
+    if (selectedTime == null ||
+        selectedCategory == null ||
+        label.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please fill all required fields: Time, Label, Category.',
+          ),
+        ),
+      );
+      return;
+    }
+    final db = await DatabaseHelper().db;
+    final alarmData = {
+      'time': selectedTime!.format(context),
+      'label': label,
+      'category': selectedCategory?.name ?? '',
+      'repeatDays': repeatDays.join(','),
+      'ringtone': ringtone,
+      'vibration': vibration ? 1 : 0,
+      'oneTime': oneTime ? 1 : 0,
+      'preAlarm': preAlarm ? 1 : 0,
+      'snooze': snooze,
+      'note': note,
+      'enabled': 1,
+    };
+    final id = await db.insert('alarms', alarmData);
+    print('[AddAlarmPage] Added alarm to DB: id=$id, data=$alarmData');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Use theme background
+      backgroundColor: Theme.of(
+        context,
+      ).scaffoldBackgroundColor, // Use theme background
       appBar: AppBar(
-        title: Text('Add New Alarm', style: Theme.of(context).appBarTheme.titleTextStyle), // Consistent title style
-        iconTheme: Theme.of(context).appBarTheme.iconTheme, // Consistent icon color
+        title: Text(
+          'Add New Alarm',
+          style: Theme.of(context).appBarTheme.titleTextStyle,
+        ), // Consistent title style
+        iconTheme: Theme.of(
+          context,
+        ).appBarTheme.iconTheme, // Consistent icon color
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -58,7 +129,10 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                 if (picked != null) setState(() => selectedTime = picked);
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 18,
+                  horizontal: 16,
+                ),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.deepPurple, width: 2),
                   borderRadius: BorderRadius.circular(12),
@@ -69,7 +143,9 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                       selectedTime != null
                           ? selectedTime!.format(context)
                           : '--:--',
-                      style: Theme.of(context).textTheme.headlineSmall, // Use a larger text style
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineSmall, // Use a larger text style
                     ),
                     const Spacer(),
                     const Icon(Icons.access_time, color: Colors.deepPurple),
@@ -85,8 +161,13 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             TextField(
               decoration: InputDecoration(
                 hintText: 'Wake up, Prayer time, Gym...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
               ),
               onChanged: (v) => label = v,
             ),
@@ -98,7 +179,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             DropdownButtonFormField<AlarmCategory>(
               value: selectedCategory,
               hint: const Text('Choose category'),
-              items: initialCategories.map((cat) { // Use initialCategories from home_page
+              items: categories.map((cat) {
                 return DropdownMenuItem(
                   value: cat,
                   child: Row(
@@ -112,8 +193,13 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
               }).toList(),
               onChanged: (cat) => setState(() => selectedCategory = cat),
               decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -123,11 +209,19 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
-              runSpacing: 8, // Added runSpacing for better layout on multiple lines
+              runSpacing:
+                  8, // Added runSpacing for better layout on multiple lines
               children: allDays.map((day) {
                 final selected = repeatDays.contains(day);
                 return ChoiceChip(
-                  label: Text(day, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: selected ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color)),
+                  label: Text(
+                    day,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: selected
+                          ? Colors.white
+                          : Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
+                  ),
                   selected: selected,
                   selectedColor: Colors.deepPurple,
                   onSelected: (val) {
@@ -149,11 +243,18 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: ringtone,
-              items: ringtones.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+              items: ringtones
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                  .toList(),
               onChanged: (val) => setState(() => ringtone = val ?? 'Default'),
               decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -162,10 +263,15 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Vibration', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'Vibration',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 Switch(
                   value: vibration,
-                  onChanged: (val) => setState(() => vibration = val), // Active color from theme's switchTheme
+                  onChanged: (val) => setState(
+                    () => vibration = val,
+                  ), // Active color from theme's switchTheme
                 ),
               ],
             ),
@@ -175,7 +281,10 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('One-time alarm', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'One-time alarm',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 Switch(
                   value: oneTime,
                   onChanged: (val) => setState(() => oneTime = val),
@@ -188,7 +297,10 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Pre-alarm', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'Pre-alarm',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 Switch(
                   value: preAlarm,
                   onChanged: (val) => setState(() => preAlarm = val),
@@ -198,28 +310,46 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             const SizedBox(height: 24),
 
             // Snooze duration
-            Text('Snooze duration (minutes)', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Snooze duration (minutes)',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: snooze,
-              items: snoozeOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              items: snoozeOptions
+                  .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                  .toList(),
               onChanged: (val) => setState(() => snooze = val ?? '5 minutes'),
               decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
               ),
             ),
             const SizedBox(height: 24),
 
             // Note
-            Text('Note (optional)', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Note (optional)',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 8),
             TextField(
               maxLines: 2,
               decoration: InputDecoration(
                 hintText: 'Add a note...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
               ),
               onChanged: (v) => note = v,
             ),
@@ -229,16 +359,24 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded( // Use Expanded for buttons to fill space better
+                Expanded(
+                  // Use Expanded for buttons to fill space better
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.deepPurple,
                       side: const BorderSide(color: Colors.deepPurple),
-                      padding: const EdgeInsets.symmetric(vertical: 14), // Removed horizontal padding
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                      ), // Removed horizontal padding
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16), // Space between buttons
@@ -247,13 +385,26 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.deepPurple,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    onPressed: () {
-                      // TODO: Save alarm logic
-                      Navigator.pop(context);
+                    onPressed: () async {
+                      await _addAlarmToDb();
+                      if (selectedTime != null &&
+                          selectedCategory != null &&
+                          label.trim().isNotEmpty &&
+                          Navigator.canPop(context)) {
+                        Navigator.pop(context, true);
+                      }
                     },
-                    child: const Text('Add Alarm', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    child: const Text(
+                      'Add Alarm',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ],

@@ -5,27 +5,11 @@ import 'add_alarm_page.dart';
 import 'category_detail_page.dart';
 import '../widgets/info_card.dart';
 import '../widgets/category_card.dart';
-import '../widgets/add_category_dialog.dart'; // Updated import path if it was different
-import 'dart:math'; // For random color
-import 'package:lottie/lottie.dart'; // Import Lottie package
-import 'package:flutter_slidable/flutter_slidable.dart'; // Import Slidable
-
-// Moved the initial categories list here, as it's primarily used by HomePage
-final List<AlarmCategory> initialCategories = [
-  AlarmCategory(
-    name: 'All Alarms',
-    icon: Icons.list_alt_outlined,
-    color: Colors.orange.shade700,
-  ), // Default first category
-  AlarmCategory(
-    name: 'Gym',
-    icon: Icons.fitness_center,
-    color: Colors.deepPurple,
-  ),
-  AlarmCategory(name: 'Namaz', icon: Icons.mosque, color: Colors.green),
-  AlarmCategory(name: 'Drink', icon: Icons.local_drink, color: Colors.teal),
-  AlarmCategory(name: 'Custom', icon: Icons.category, color: Colors.blueGrey),
-];
+import '../widgets/add_category_dialog.dart';
+import 'dart:math';
+import 'package:lottie/lottie.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import '../services/database_helper.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -35,71 +19,83 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // Make a deep copy to allow independent state management for toggling
-  List<AlarmCategory> categories = initialCategories
-      .map(
-        (c) => AlarmCategory(
-          name: c.name,
-          icon: c.icon,
-          emoji: c.emoji,
-          color: c.color,
-          enabled: c.enabled,
-        ),
-      )
-      .toList();
-
-  int get activeAlarms => 0; // Placeholder for actual alarm count
-  int get categoryCount => categories.length;
+  List<AlarmCategory> categories = [];
   AlarmCategory? selectedCategory;
+
+  List<Map<String, dynamic>> alarms = [];
+
+  int get activeAlarms => alarms.where((a) => (a['enabled'] ?? 1) == 1).length;
+  int get activeCategories => categories.where((c) => c.enabled).length;
+  int get totalCategories => categories.length;
 
   @override
   void initState() {
     super.initState();
-    // Select the first category by default if the list is not empty
-    if (categories.isNotEmpty) {
-      selectedCategory = categories.first;
-    }
+    _loadCategoriesFromDb();
+    _loadAlarmsFromDb();
+  }
+
+  Future<void> _loadCategoriesFromDb() async {
+    final db = await DatabaseHelper().db;
+    final List<Map<String, dynamic>> maps = await db.query('categories');
+    final loaded = maps
+        .map(
+          (map) => AlarmCategory(
+            name: map['name'],
+            emoji: map['emoji'],
+            icon: null, // You can add icon logic if you store it
+            color: Colors.primaries[map['id'] % Colors.primaries.length],
+            enabled: map['enabled'] == 1,
+          ),
+        )
+        .toList();
+    loaded.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    ); // Sort ascending by name
+    setState(() {
+      categories = loaded;
+      selectedCategory = categories.isNotEmpty ? categories.first : null;
+    });
+  }
+
+  Future<void> _loadAlarmsFromDb() async {
+    final db = await DatabaseHelper().db;
+    alarms = await db.query('alarms');
+    setState(() {});
+  }
+
+  Future<void> _updateCategoryEnabledInDb(int idx, bool enabled) async {
+    final db = await DatabaseHelper().db;
+    final category = categories[idx];
+    await db.update(
+      'categories',
+      {'enabled': enabled ? 1 : 0},
+      where: 'name = ?',
+      whereArgs: [category.name],
+    );
+    await _loadCategoriesFromDb();
+  }
+
+  Future<void> _updateAlarmEnabledInDb(int alarmId, bool enabled) async {
+    final db = await DatabaseHelper().db;
+    await db.update(
+      'alarms',
+      {'enabled': enabled ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [alarmId],
+    );
+    await _loadAlarmsFromDb();
   }
 
   void _showAddCategoryDialog({AlarmCategory? categoryToEdit}) {
-    // Add optional parameter
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AddCategoryDialog(
-          existingCategory: categoryToEdit, // Pass the category to edit
-          onCategoryAdded: (name, emoji) {
-            setState(() {
-              if (categoryToEdit != null) {
-                // Editing existing category
-                categoryToEdit.name = name;
-                categoryToEdit.emoji = emoji;
-                // Update icon based on emoji presence
-                categoryToEdit.icon =
-                    emoji == null && categoryToEdit.icon == null
-                    ? Icons
-                          .label_important_outline // Default if no emoji and no previous icon
-                    : (emoji != null
-                          ? null
-                          : categoryToEdit
-                                .icon); // Clear icon if emoji is set, else keep old icon
-                if (selectedCategory == categoryToEdit) {
-                  selectedCategory =
-                      categoryToEdit; // Ensure selectedCategory reflects changes
-                }
-              } else {
-                // Adding new category
-                final newCategory = AlarmCategory(
-                  name: name,
-                  emoji: emoji,
-                  icon: emoji == null ? Icons.label_important_outline : null,
-                  color: Colors
-                      .primaries[Random().nextInt(Colors.primaries.length)],
-                  enabled: true,
-                );
-                categories.add(newCategory);
-              }
-            });
+          existingCategory: categoryToEdit,
+          onCategoryAdded: (name, emoji) async {
+            await _loadCategoriesFromDb();
+            await _loadAlarmsFromDb(); // Also reload alarms to reflect category label changes
           },
         );
       },
@@ -126,7 +122,6 @@ class _HomePageState extends State<HomePage> {
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: SingleChildScrollView(
-          // <-- Added
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -141,7 +136,7 @@ class _HomePageState extends State<HomePage> {
                 title1: "Active Alarms",
                 value1: "$activeAlarms",
                 title2: "Categories",
-                value2: "$categoryCount",
+                value2: "${activeCategories}/${totalCategories}",
               ),
               const SizedBox(height: 24),
               Row(
@@ -196,23 +191,104 @@ class _HomePageState extends State<HomePage> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: ListView.separated(
-                        itemCount: categories.length + 1,
+                        itemCount:
+                            categories.length +
+                            2, // +1 for All Alarms, +1 for Add New Category
                         physics:
                             categories.length * itemHeight + addButtonHeight >
                                 200
                             ? const AlwaysScrollableScrollPhysics()
                             : const NeverScrollableScrollPhysics(),
-                        separatorBuilder: (context, idx) =>
-                            idx < categories.length - 1
-                            ? const Divider(
+                        separatorBuilder: (context, idx) {
+                          // Divider only between real categories (not after All Alarms)
+                          if (idx == 0) {
+                            return const SizedBox.shrink();
+                          }
+                          // Show divider after every category, including after last, but not after Add New Category
+                          if (idx <= categories.length) {
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                left: 56.0,
+                              ), // 40 for icon + 16 for sr no + padding
+                              child: const Divider(
                                 height: 1,
                                 thickness: 1,
-                                indent: 16,
+                                // indent: 16, // Remove indent, use left padding instead
                                 endIndent: 16,
-                              )
-                            : const SizedBox.shrink(),
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
                         itemBuilder: (context, idx) {
-                          if (idx == categories.length) {
+                          if (idx == 0) {
+                            // All Alarms pseudo-category
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () {
+                                setState(() {
+                                  selectedCategory = null;
+                                });
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withOpacity(0.10),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: selectedCategory == null
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.transparent,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.alarm,
+                                      color: Colors.deepPurple,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Text(
+                                      'All Alarms',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.deepPurple.withOpacity(
+                                          0.15,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        '${alarms.length}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              color: Colors.deepPurple,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          } else if (idx == categories.length + 1) {
+                            // Add New Category button
                             return Padding(
                               padding: const EdgeInsets.only(top: 8.0),
                               child: TextButton.icon(
@@ -233,9 +309,15 @@ class _HomePageState extends State<HomePage> {
                               ),
                             );
                           } else {
-                            final categoryItem = categories[idx];
-                            final bool isSelected =
-                                selectedCategory == categoryItem;
+                            final categoryItem = categories[idx - 1];
+                            final int srNo = idx;
+                            // Count alarms for this category
+                            final int alarmCount = alarms
+                                .where(
+                                  (alarm) =>
+                                      alarm['category'] == categoryItem.name,
+                                )
+                                .length;
                             return Slidable(
                               key: ValueKey(
                                 '${categoryItem.name}_${categoryItem.color}',
@@ -255,13 +337,7 @@ class _HomePageState extends State<HomePage> {
                                   SlidableAction(
                                     onPressed: (context) {
                                       setState(() {
-                                        categories.removeAt(idx);
-                                        if (selectedCategory == categoryItem) {
-                                          selectedCategory =
-                                              categories.isNotEmpty
-                                              ? categories.first
-                                              : null;
-                                        }
+                                        categories.removeAt(idx - 1);
                                       });
                                     },
                                     backgroundColor: Colors.red,
@@ -270,14 +346,17 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                   SlidableAction(
                                     onPressed: (context) {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => CategoryDetailPage(
-                                            category: categoryItem,
+                                      setState(() {
+                                        // open category detail page
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => CategoryDetailPage(
+                                              category: categoryItem,
+                                            ),
                                           ),
-                                        ),
-                                      );
+                                        );
+                                      });
                                     },
                                     backgroundColor: Colors.black,
                                     foregroundColor: Colors.white,
@@ -285,36 +364,38 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                 ],
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 4.0,
-                                ),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
-                                  decoration: BoxDecoration(
-                                    border: isSelected
-                                        ? Border(
-                                            left: BorderSide(
-                                              color: Colors.green.shade600,
-                                              width: 4.0,
-                                            ),
-                                          )
-                                        : null,
+                              child: Row(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      left: 8.0,
+                                      right: 12.0,
+                                    ),
+                                    child: Text(
+                                      '$srNo',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium,
+                                    ),
                                   ),
-                                  child: CategoryCard(
-                                    category: categoryItem,
-                                    onTap: () {
-                                      setState(() {
-                                        selectedCategory = categoryItem;
-                                      });
-                                    },
-                                    onToggle: (val) {
-                                      setState(
-                                        () => categoryItem.enabled = val,
-                                      );
-                                    },
+                                  Expanded(
+                                    child: CategoryCard(
+                                      category: categoryItem,
+                                      alarmCount: alarmCount,
+                                      onTap: () {
+                                        setState(() {
+                                          selectedCategory = categoryItem;
+                                        });
+                                      },
+                                      onToggle: (val) async {
+                                        await _updateCategoryEnabledInDb(
+                                          idx - 1,
+                                          val,
+                                        );
+                                      },
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
                             );
                           }
@@ -330,67 +411,168 @@ class _HomePageState extends State<HomePage> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 12),
-              if (selectedCategory != null)
-                SingleChildScrollView(
-                  // <-- Added for category alarms
-                  child: Card(
-                    elevation: 2,
-                    shape: Theme.of(context).cardTheme.shape,
-                    color: Theme.of(context).cardTheme.color,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              selectedCategory!.name,
-                              style: Theme.of(context).textTheme.headlineSmall,
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: 100,
-                              height: 100,
-                              child: ClipRect(
-                                child: Transform.scale(
-                                  scale: 2.0,
-                                  child: Lottie.asset(
-                                    'assets/lottie/empty_state_animation.json',
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Icon(
-                                        Icons.hourglass_empty,
-                                        size: 100,
-                                        color: Colors.grey,
+              if (selectedCategory == null)
+                (alarms.isNotEmpty)
+                    ? ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: alarms.length,
+                        itemBuilder: (context, idx) {
+                          final alarm = alarms[idx];
+                          return Card(
+                            child: ListTile(
+                              leading: const Icon(Icons.alarm),
+                              title: Text(alarm['label'] ?? ''),
+                              subtitle: Text('Time: \t${alarm['time']}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(alarm['repeatDays'] ?? ''),
+                                  const SizedBox(width: 8),
+                                  Switch(
+                                    value: (alarm['enabled'] ?? 1) == 1,
+                                    onChanged: (val) async {
+                                      await _updateAlarmEnabledInDb(
+                                        alarm['id'],
+                                        val,
                                       );
                                     },
                                   ),
-                                ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              "No alarms in \"${selectedCategory!.name}\" yet.\nTap the '+' button to add one!",
+                          );
+                        },
+                      )
+                    : Card(
+                        elevation: 2,
+                        shape: Theme.of(context).cardTheme.shape,
+                        color: Theme.of(context).cardTheme.color,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              "No alarms yet. Tap the '+' button to add one!",
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(color: Colors.black45),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 14),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
+              if (selectedCategory != null)
+                (alarms
+                        .where(
+                          (alarm) =>
+                              alarm['category'] == selectedCategory!.name,
+                        )
+                        .isNotEmpty)
+                    ? ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: alarms
+                            .where(
+                              (alarm) =>
+                                  alarm['category'] == selectedCategory!.name,
+                            )
+                            .length,
+                        itemBuilder: (context, idx) {
+                          final alarm = alarms
+                              .where(
+                                (alarm) =>
+                                    alarm['category'] == selectedCategory!.name,
+                              )
+                              .toList()[idx];
+                          return Card(
+                            child: ListTile(
+                              leading: const Icon(Icons.alarm),
+                              title: Text(alarm['label'] ?? ''),
+                              subtitle: Text('Time: \t${alarm['time']}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(alarm['repeatDays'] ?? ''),
+                                  const SizedBox(width: 8),
+                                  Switch(
+                                    value: (alarm['enabled'] ?? 1) == 1,
+                                    onChanged: (val) async {
+                                      await _updateAlarmEnabledInDb(
+                                        alarm['id'],
+                                        val,
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : Card(
+                        elevation: 2,
+                        shape: Theme.of(context).cardTheme.shape,
+                        color: Theme.of(context).cardTheme.color,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  selectedCategory!.name,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineSmall,
+                                ),
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  width: 100,
+                                  height: 100,
+                                  child: ClipRect(
+                                    child: Transform.scale(
+                                      scale: 2.0,
+                                      child: Lottie.asset(
+                                        'assets/lottie/empty_state_animation.json',
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                              return const Icon(
+                                                Icons.hourglass_empty,
+                                                size: 100,
+                                                color: Colors.grey,
+                                              );
+                                            },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  "No alarms in \"${selectedCategory!.name}\" yet.\nTap the '+' button to add one!",
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(color: Colors.black45),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 14),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
             ],
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const AddAlarmPage()),
           );
+          if (result == true) {
+            await _loadAlarmsFromDb();
+            await _loadCategoriesFromDb(); // Also reload categories
+            setState(() {});
+          }
         },
         child: const Icon(Icons.add, size: 32),
       ),

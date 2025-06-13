@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import '../services/database_helper.dart';
 import '../models/alarm_category.dart'; // Import AlarmCategory
 
 class AddCategoryDialog extends StatefulWidget {
   final Function(String name, String? emoji) onCategoryAdded;
   final AlarmCategory? existingCategory;
 
-  const AddCategoryDialog({super.key, required this.onCategoryAdded, this.existingCategory});
+  const AddCategoryDialog({
+    super.key,
+    required this.onCategoryAdded,
+    this.existingCategory,
+  });
 
   @override
   State<AddCategoryDialog> createState() => _AddCategoryDialogState();
@@ -32,19 +37,76 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
     super.dispose();
   }
 
-  void _submit() {
+  void _submit() async {
     if (_formKey.currentState!.validate()) {
       String? emoji = _emojiController.text.trim();
-      widget.onCategoryAdded(_nameController.text.trim(), emoji.isNotEmpty ? emoji : null);
+      String? categoryLabel = _nameController.text.trim();
+      final db = await DatabaseHelper().db;
+      if (widget.existingCategory != null) {
+        // Edit existing category
+        await db.update(
+          'categories',
+          {'name': categoryLabel, 'emoji': emoji.isNotEmpty ? emoji : null},
+          where: 'name = ?',
+          whereArgs: [widget.existingCategory!.name],
+        );
+        // Also update alarms with old category name to new name
+        await db.update(
+          'alarms',
+          {'category': categoryLabel},
+          where: 'category = ?',
+          whereArgs: [widget.existingCategory!.name],
+        );
+      } else {
+        // Add new category (check for duplicate)
+        final existing = await db.query(
+          'categories',
+          where: 'name = ?',
+          whereArgs: [categoryLabel],
+        );
+        if (existing.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Category already exists.')),
+          );
+          return;
+        }
+        await db.insert('categories', {
+          'name': categoryLabel,
+          'emoji': emoji.isNotEmpty ? emoji : null,
+          'enabled': 1,
+        });
+      }
+      widget.onCategoryAdded(categoryLabel, emoji.isNotEmpty ? emoji : null);
       Navigator.of(context).pop();
     }
+  }
+
+  Future<void> deleteCategory() async {
+    if (widget.existingCategory == null) return;
+    final db = await DatabaseHelper().db;
+    // Delete all alarms for this category
+    await db.delete(
+      'alarms',
+      where: 'category = ?',
+      whereArgs: [widget.existingCategory!.name],
+    );
+    // Delete the category
+    await db.delete(
+      'categories',
+      where: 'name = ?',
+      whereArgs: [widget.existingCategory!.name],
+    );
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.existingCategory == null ? 'Add New Category' : 'Edit Category'),
-      content: SingleChildScrollView( // Added SingleChildScrollView for smaller screens
+      title: Text(
+        widget.existingCategory == null ? 'Add New Category' : 'Edit Category',
+      ),
+      content: SingleChildScrollView(
+        // Added SingleChildScrollView for smaller screens
         child: Form(
           key: _formKey,
           child: Column(
@@ -73,7 +135,8 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
                   hintText: 'e.g., 👍, 🚀',
                   border: OutlineInputBorder(),
                 ),
-                maxLength: 2, // Allow for emoji + skin tone modifier if any, or just one char
+                maxLength:
+                    2, // Allow for emoji + skin tone modifier if any, or just one char
                 validator: (value) {
                   // Optional: Add validation for emoji format if needed,
                   // but for simplicity, we'll allow any short string.
@@ -98,9 +161,9 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
       ],
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
       backgroundColor: Theme.of(context).cardColor,
-      titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.w500,
-      ),
+      titleTextStyle: Theme.of(
+        context,
+      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
     );
   }
 }
