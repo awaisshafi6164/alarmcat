@@ -9,6 +9,7 @@ import '../widgets/add_category_dialog.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../services/database_helper.dart';
+import '../widgets/alarm_card.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -452,28 +453,20 @@ class _HomePageState extends State<HomePage> {
                         itemCount: alarms.length,
                         itemBuilder: (context, idx) {
                           final alarm = alarms[idx];
-                          return Card(
-                            child: ListTile(
-                              leading: const Icon(Icons.alarm),
-                              title: Text(alarm['label'] ?? ''),
-                              subtitle: Text('Time: \t${alarm['time']}'),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(alarm['repeatDays'] ?? ''),
-                                  const SizedBox(width: 8),
-                                  Switch(
-                                    value: (alarm['enabled'] ?? 1) == 1,
-                                    onChanged: (val) async {
-                                      await _updateAlarmEnabledInDb(
-                                        alarm['id'],
-                                        val,
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
+                          return AlarmCard(
+                            label: alarm['label'] ?? '',
+                            time: alarm['time'] ?? '',
+                            repeatDays: alarm['repeatDays'] ?? '',
+                            enabled: (alarm['enabled'] ?? 1) == 1,
+                            ringtone: alarm['ringtone'] ?? '',
+                            vibration: (alarm['vibration'] ?? 1) == 1,
+                            oneTime: (alarm['oneTime'] ?? 0) == 1,
+                            preAlarm: (alarm['preAlarm'] ?? 0) == 1,
+                            snooze: alarm['snooze'] ?? '',
+                            note: alarm['note'] ?? '',
+                            onToggle: (val) async {
+                              await _updateAlarmEnabledInDb(alarm['id'], val);
+                            },
                           );
                         },
                       )
@@ -516,28 +509,20 @@ class _HomePageState extends State<HomePage> {
                                     alarm['category'] == selectedCategory!.name,
                               )
                               .toList()[idx];
-                          return Card(
-                            child: ListTile(
-                              leading: const Icon(Icons.alarm),
-                              title: Text(alarm['label'] ?? ''),
-                              subtitle: Text('Time: \t${alarm['time']}'),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(alarm['repeatDays'] ?? ''),
-                                  const SizedBox(width: 8),
-                                  Switch(
-                                    value: (alarm['enabled'] ?? 1) == 1,
-                                    onChanged: (val) async {
-                                      await _updateAlarmEnabledInDb(
-                                        alarm['id'],
-                                        val,
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
+                          return AlarmCard(
+                            label: alarm['label'] ?? '',
+                            time: alarm['time'] ?? '',
+                            repeatDays: alarm['repeatDays'] ?? '',
+                            enabled: (alarm['enabled'] ?? 1) == 1,
+                            ringtone: alarm['ringtone'] ?? '',
+                            vibration: (alarm['vibration'] ?? 1) == 1,
+                            oneTime: (alarm['oneTime'] ?? 0) == 1,
+                            preAlarm: (alarm['preAlarm'] ?? 0) == 1,
+                            snooze: alarm['snooze'] ?? '',
+                            note: alarm['note'] ?? '',
+                            onToggle: (val) async {
+                              await _updateAlarmEnabledInDb(alarm['id'], val);
+                            },
                           );
                         },
                       )
