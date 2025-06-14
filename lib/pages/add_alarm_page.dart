@@ -58,6 +58,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
           ),
         )
         .toList();
+    loaded.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
       categories = loaded;
       selectedCategory = categories.isNotEmpty ? categories.first : null;
@@ -176,30 +177,67 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             // Category
             Text('Category', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
-            DropdownButtonFormField<AlarmCategory>(
-              value: selectedCategory,
-              hint: const Text('Choose category'),
-              items: categories.map((cat) {
-                return DropdownMenuItem(
-                  value: cat,
-                  child: Row(
-                    children: [
-                      Icon(cat.icon, color: cat.color),
-                      const SizedBox(width: 8),
-                      Text(cat.name),
-                    ],
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.deepPurple.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                );
-              }).toList(),
-              onChanged: (cat) => setState(() => selectedCategory = cat),
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              child: DropdownButtonFormField<AlarmCategory>(
+                value: selectedCategory,
+                hint: const Text('Choose category'),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: Colors.deepPurple,
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
+                dropdownColor: Colors.white,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.deepPurple.shade700,
                 ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 0,
+                    vertical: 10,
+                  ),
+                  isDense: true,
+                ),
+                items: categories.map((cat) {
+                  return DropdownMenuItem(
+                    value: cat,
+                    child: Row(
+                      children: [
+                        if (cat.emoji != null && cat.emoji!.isNotEmpty)
+                          Text(
+                            cat.emoji!,
+                            style: const TextStyle(fontSize: 20),
+                          ),
+                        if (cat.emoji == null || cat.emoji!.isEmpty)
+                          Icon(
+                            Icons.category_outlined,
+                            color: cat.color,
+                            size: 22,
+                          ),
+                        const SizedBox(width: 8),
+                        Text(
+                          cat.name,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (cat) => setState(() => selectedCategory = cat),
               ),
             ),
             const SizedBox(height: 24),
@@ -244,18 +282,45 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             DropdownButtonFormField<String>(
               value: ringtone,
               items: ringtones
-                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                  .map(
+                    (r) => DropdownMenuItem(
+                      value: r,
+                      child: Text(
+                        r,
+                        style: TextStyle(fontSize: 16, color: Colors.grey[800]),
+                      ),
+                    ),
+                  )
                   .toList(),
               onChanged: (val) => setState(() => ringtone = val ?? 'Default'),
               decoration: InputDecoration(
+                // labelText: 'Select Ringtone',
+                labelStyle: TextStyle(color: Colors.grey[600], fontSize: 16),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[400]!, width: 1.5),
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[400]!, width: 1.5),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.blueAccent, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
+                  horizontal: 16,
+                  vertical: 16,
                 ),
               ),
+              icon: Icon(Icons.arrow_drop_down, color: Colors.grey[600]),
+              iconSize: 28,
+              dropdownColor: Colors.grey[50],
+              style: TextStyle(fontSize: 16, color: Colors.grey[800]),
+              borderRadius: BorderRadius.circular(12),
+              elevation: 2,
             ),
             const SizedBox(height: 24),
 

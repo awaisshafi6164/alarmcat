@@ -6,7 +6,6 @@ import 'category_detail_page.dart';
 import '../widgets/info_card.dart';
 import '../widgets/category_card.dart';
 import '../widgets/add_category_dialog.dart';
-import 'dart:math';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../services/database_helper.dart';
@@ -19,6 +18,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final ScrollController _categoryScrollController = ScrollController();
+
   List<AlarmCategory> categories = [];
   AlarmCategory? selectedCategory;
 
@@ -33,6 +34,12 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _loadCategoriesFromDb();
     _loadAlarmsFromDb();
+  }
+
+  @override
+  void dispose() {
+    _categoryScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCategoriesFromDb() async {
@@ -87,6 +94,25 @@ class _HomePageState extends State<HomePage> {
     await _loadAlarmsFromDb();
   }
 
+  Future<void> _deleteCategoryFromDb(int idx) async {
+    final db = await DatabaseHelper().db;
+    final category = categories[idx];
+    // Delete all alarms for this category
+    await db.delete(
+      'alarms',
+      where: 'category = ?',
+      whereArgs: [category.name],
+    );
+    // Delete the category
+    await db.delete(
+      'categories',
+      where: 'name = ?',
+      whereArgs: [category.name],
+    );
+    await _loadCategoriesFromDb();
+    await _loadAlarmsFromDb();
+  }
+
   void _showAddCategoryDialog({AlarmCategory? categoryToEdit}) {
     showDialog(
       context: context,
@@ -95,7 +121,17 @@ class _HomePageState extends State<HomePage> {
           existingCategory: categoryToEdit,
           onCategoryAdded: (name, emoji) async {
             await _loadCategoriesFromDb();
-            await _loadAlarmsFromDb(); // Also reload alarms to reflect category label changes
+            await _loadAlarmsFromDb();
+            // Scroll to end after adding
+            if (_categoryScrollController.hasClients) {
+              Future.delayed(const Duration(milliseconds: 300), () {
+                _categoryScrollController.animateTo(
+                  _categoryScrollController.position.maxScrollExtent,
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOut,
+                );
+              });
+            }
           },
         );
       },
@@ -171,239 +207,236 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 4),
               // Dynamically adjust height: grow with categories, max 200
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  // Each item is about 56px + divider, plus some padding
-                  final itemHeight = 56.0 + 8.0; // Card + padding
-                  final addButtonHeight = 48.0;
-                  final totalHeight =
-                      (categories.length * itemHeight) +
-                      addButtonHeight +
-                      24.0; // 24 for top/bottom padding
-                  final cardHeight = totalHeight.clamp(120.0, 200.0);
-
-                  return SizedBox(
-                    height: cardHeight,
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: ListView.separated(
-                        itemCount:
-                            categories.length +
-                            2, // +1 for All Alarms, +1 for Add New Category
-                        physics:
-                            categories.length * itemHeight + addButtonHeight >
-                                200
-                            ? const AlwaysScrollableScrollPhysics()
-                            : const NeverScrollableScrollPhysics(),
-                        separatorBuilder: (context, idx) {
-                          // Divider only between real categories (not after All Alarms)
-                          if (idx == 0) {
-                            return const SizedBox.shrink();
-                          }
-                          // Show divider after every category, including after last, but not after Add New Category
-                          if (idx <= categories.length) {
-                            return Padding(
-                              padding: const EdgeInsets.only(
-                                left: 56.0,
-                              ), // 40 for icon + 16 for sr no + padding
-                              child: const Divider(
-                                height: 1,
-                                thickness: 1,
-                                // indent: 16, // Remove indent, use left padding instead
-                                endIndent: 16,
-                              ),
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        },
-                        itemBuilder: (context, idx) {
-                          if (idx == 0) {
-                            // All Alarms pseudo-category
-                            return InkWell(
+              SizedBox(
+                height: 200, // Fixed max height for scroll area
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: ListView.separated(
+                    controller: _categoryScrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount:
+                        categories.length +
+                        2, // +1 for All Alarms, +1 for Add New Category
+                    separatorBuilder: (context, idx) {
+                      // Divider only between real categories (not after All Alarms)
+                      if (idx == 0) {
+                        return const SizedBox.shrink();
+                      }
+                      // Show divider after every category, including after last, but not after Add New Category
+                      if (idx <= categories.length) {
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 56.0),
+                          child: const Divider(
+                            height: 1,
+                            thickness: 1,
+                            endIndent: 16,
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                    itemBuilder: (context, idx) {
+                      if (idx == 0) {
+                        // All Alarms pseudo-category
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () {
+                            setState(() {
+                              selectedCategory = null;
+                            });
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.10),
                               borderRadius: BorderRadius.circular(12),
-                              onTap: () {
-                                setState(() {
-                                  selectedCategory = null;
-                                });
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.primary.withOpacity(0.10),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: selectedCategory == null
-                                        ? Theme.of(context).colorScheme.primary
-                                        : Colors.transparent,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                  horizontal: 8,
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.alarm,
-                                      color: Colors.deepPurple,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Text(
-                                      'All Alarms',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.deepPurple.withOpacity(
-                                          0.15,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        '${alarms.length}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              color: Colors.deepPurple,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              border: Border.all(
+                                color: selectedCategory == null
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Colors.transparent,
+                                width: 1.5,
                               ),
-                            );
-                          } else if (idx == categories.length + 1) {
-                            // Add New Category button
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: TextButton.icon(
-                                icon: const Icon(
-                                  Icons.add_circle_outline,
-                                  size: 20,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.alarm,
+                                  color: Colors.deepPurple,
                                 ),
-                                label: const Text("Add New Category"),
-                                onPressed: _showAddCategoryDialog,
-                                style: TextButton.styleFrom(
+                                const SizedBox(width: 12),
+                                const Text(
+                                  'All Alarms',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                const Spacer(),
+                                Container(
                                   padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
+                                    horizontal: 10,
+                                    vertical: 4,
                                   ),
-                                  foregroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.primary,
+                                  decoration: BoxDecoration(
+                                    color: Colors.deepPurple.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${alarms.length}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: Colors.deepPurple,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      } else if (idx == categories.length + 1) {
+                        // Add New Category button
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: TextButton.icon(
+                            icon: const Icon(
+                              Icons.add_circle_outline,
+                              size: 20,
+                            ),
+                            label: const Text("Add New Category"),
+                            onPressed: _showAddCategoryDialog,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                            ),
+                          ),
+                        );
+                      } else {
+                        final categoryItem = categories[idx - 1];
+                        final int srNo = idx;
+                        // Count alarms for this category
+                        final int alarmCount = alarms
+                            .where(
+                              (alarm) => alarm['category'] == categoryItem.name,
+                            )
+                            .length;
+                        return Slidable(
+                          key: ValueKey(
+                            '${categoryItem.name}_${categoryItem.color}',
+                          ),
+                          endActionPane: ActionPane(
+                            motion: const DrawerMotion(),
+                            children: [
+                              SlidableAction(
+                                onPressed: (context) => _showAddCategoryDialog(
+                                  categoryToEdit: categoryItem,
+                                ),
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                icon: Icons.edit,
+                              ),
+                              SlidableAction(
+                                onPressed: (context) async {
+                                  await _deleteCategoryFromDb(idx - 1);
+                                  // Optionally scroll to top if list is now short
+                                  if (_categoryScrollController.hasClients) {
+                                    Future.delayed(
+                                      const Duration(milliseconds: 200),
+                                      () {
+                                        _categoryScrollController.animateTo(
+                                          0.0,
+                                          duration: const Duration(
+                                            milliseconds: 300,
+                                          ),
+                                          curve: Curves.easeOut,
+                                        );
+                                      },
+                                    );
+                                  }
+                                },
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                                icon: Icons.delete,
+                              ),
+                              SlidableAction(
+                                onPressed: (context) {
+                                  setState(() {
+                                    // open category detail page
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => CategoryDetailPage(
+                                          category: categoryItem,
+                                        ),
+                                      ),
+                                    );
+                                  });
+                                },
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                                icon: Icons.settings,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 250),
+                                width: 6,
+                                height: 48,
+                                margin: const EdgeInsets.only(right: 10),
+                                decoration: BoxDecoration(
+                                  color: selectedCategory == categoryItem
+                                      ? categoryItem.color
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                               ),
-                            );
-                          } else {
-                            final categoryItem = categories[idx - 1];
-                            final int srNo = idx;
-                            // Count alarms for this category
-                            final int alarmCount = alarms
-                                .where(
-                                  (alarm) =>
-                                      alarm['category'] == categoryItem.name,
-                                )
-                                .length;
-                            return Slidable(
-                              key: ValueKey(
-                                '${categoryItem.name}_${categoryItem.color}',
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 0.0,
+                                  right: 12.0,
+                                ),
+                                child: Text(
+                                  '$srNo',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
                               ),
-                              endActionPane: ActionPane(
-                                motion: const DrawerMotion(),
-                                children: [
-                                  SlidableAction(
-                                    onPressed: (context) =>
-                                        _showAddCategoryDialog(
-                                          categoryToEdit: categoryItem,
-                                        ),
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                    icon: Icons.edit,
-                                  ),
-                                  SlidableAction(
-                                    onPressed: (context) {
-                                      setState(() {
-                                        categories.removeAt(idx - 1);
-                                      });
-                                    },
-                                    backgroundColor: Colors.red,
-                                    foregroundColor: Colors.white,
-                                    icon: Icons.delete,
-                                  ),
-                                  SlidableAction(
-                                    onPressed: (context) {
-                                      setState(() {
-                                        // open category detail page
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => CategoryDetailPage(
-                                              category: categoryItem,
-                                            ),
-                                          ),
-                                        );
-                                      });
-                                    },
-                                    backgroundColor: Colors.black,
-                                    foregroundColor: Colors.white,
-                                    icon: Icons.settings,
-                                  ),
-                                ],
+                              Expanded(
+                                child: CategoryCard(
+                                  category: categoryItem,
+                                  alarmCount: alarmCount,
+                                  isSelected: selectedCategory == categoryItem,
+                                  onTap: () {
+                                    setState(() {
+                                      selectedCategory = categoryItem;
+                                    });
+                                  },
+                                  onToggle: (val) async {
+                                    await _updateCategoryEnabledInDb(
+                                      idx - 1,
+                                      val,
+                                    );
+                                  },
+                                ),
                               ),
-                              child: Row(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.only(
-                                      left: 8.0,
-                                      right: 12.0,
-                                    ),
-                                    child: Text(
-                                      '$srNo',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodyMedium,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: CategoryCard(
-                                      category: categoryItem,
-                                      alarmCount: alarmCount,
-                                      onTap: () {
-                                        setState(() {
-                                          selectedCategory = categoryItem;
-                                        });
-                                      },
-                                      onToggle: (val) async {
-                                        await _updateCategoryEnabledInDb(
-                                          idx - 1,
-                                          val,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                  );
-                },
+                            ],
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
               Text(

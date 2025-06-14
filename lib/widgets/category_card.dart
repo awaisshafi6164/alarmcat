@@ -6,6 +6,7 @@ class CategoryCard extends StatelessWidget {
   final VoidCallback onTap;
   final ValueChanged<bool>? onToggle; // Make nullable
   final int alarmCount; // New parameter
+  final bool isSelected;
 
   const CategoryCard({
     super.key,
@@ -13,6 +14,7 @@ class CategoryCard extends StatelessWidget {
     required this.onTap,
     required this.onToggle,
     required this.alarmCount, // New parameter
+    this.isSelected = false,
   });
 
   @override
@@ -20,15 +22,13 @@ class CategoryCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        // Remove background and shadow, only keep the bar
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween, // Distribute space
           children: [
             Expanded(
               child: Opacity(
-                opacity: category.enabled
-                    ? 1.0
-                    : 0.5, // Dim content if not enabled
+                opacity: category.enabled ? 1.0 : 0.5,
                 child: Row(
                   children: [
                     if (category.emoji != null && category.emoji!.isNotEmpty)
