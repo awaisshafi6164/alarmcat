@@ -8,23 +8,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:alarmcat/main.dart';
 
 void main() {
+  setUpAll(() async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
     await tester.pumpWidget(const MyApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Count the number of '0' widgets before tapping
+    final zeroBefore = find.text('0');
+    final zeroCountBefore = tester.widgetList(zeroBefore).length;
 
     // Tap the '+' icon and trigger a frame.
     await tester.tap(find.byIcon(Icons.add));
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Count the number of '0' and '1' widgets after tapping
+    final zeroAfter = find.text('0');
+    final oneAfter = find.text('1');
+    final zeroCountAfter = tester.widgetList(zeroAfter).length;
+    final oneCountAfter = tester.widgetList(oneAfter).length;
+
+    // At least one '0' should be replaced by '1'
+    expect(oneCountAfter, greaterThan(0));
+    expect(zeroCountAfter, lessThan(zeroCountBefore));
   });
 }

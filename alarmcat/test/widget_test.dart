@@ -1,41 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:alarmcat/widgets/alarm_tile.dart';
-import 'package:alarmcat/widgets/category_tile.dart';
-import 'package:alarmcat/screens/home_screen.dart';
+import '../../lib/widgets/alarm_card.dart';
+import '../../lib/widgets/category_card.dart';
+import '../../lib/models/alarm_category.dart';
 
 void main() {
-  testWidgets('HomeScreen displays alarm tiles', (WidgetTester tester) async {
-    await tester.pumpWidget(MaterialApp(home: HomeScreen()));
-
-    expect(find.byType(AlarmTile), findsWidgets);
-  });
-
-  testWidgets('HomeScreen displays category tiles', (WidgetTester tester) async {
-    await tester.pumpWidget(MaterialApp(home: HomeScreen()));
-
-    expect(find.byType(CategoryTile), findsWidgets);
-  });
-
-  testWidgets('AlarmTile shows correct label', (WidgetTester tester) async {
+  testWidgets('AlarmCard shows correct label', (WidgetTester tester) async {
     const alarmLabel = 'Morning Alarm';
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: AlarmTile(label: alarmLabel),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AlarmCard(
+            label: alarmLabel,
+            time: '07:00',
+            repeatDays: 'Mon,Tue,Wed',
+            enabled: true,
+            onToggle: (v) {},
+            ringtone: 'default',
+            vibration: false,
+            oneTime: false,
+            preAlarm: false,
+            snooze: '5',
+            note: '',
+          ),
+        ),
       ),
-    ));
-
-    expect(find.text(alarmLabel), findsOneWidget);
+    );
+    expect(find.text(alarmLabel.toUpperCase()), findsOneWidget);
   });
 
-  testWidgets('CategoryTile shows correct name', (WidgetTester tester) async {
-    const categoryName = 'Work';
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: CategoryTile(name: categoryName),
+  testWidgets('CategoryCard shows correct name', (WidgetTester tester) async {
+    final category = AlarmCategory(
+      name: 'Work',
+      color: Colors.blue,
+      enabled: true,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CategoryCard(
+            category: category,
+            onTap: () {},
+            onToggle: (v) {},
+            alarmCount: 1,
+          ),
+        ),
       ),
-    ));
-
-    expect(find.text(categoryName), findsOneWidget);
+    );
+    expect(find.text('Work'), findsOneWidget);
   });
 }

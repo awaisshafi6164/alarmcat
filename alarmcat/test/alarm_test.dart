@@ -1,43 +1,30 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:alarmcat/models/alarm.dart';
+import '../../lib/models/alarm_category.dart';
 
 void main() {
-  group('Alarm Model Tests', () {
-    test('Alarm should initialize with correct values', () {
-      final alarm = Alarm(
-        time: DateTime.now(),
-        label: 'Test Alarm',
-        category: 'Default',
-        sound: 'default_sound.mp3',
-        vibrationPattern: [100, 200, 100],
-        snoozeDuration: Duration(minutes: 10),
-        notes: 'This is a test alarm',
+  group('AlarmCategory Model', () {
+    test('should create with correct values', () {
+      final category = AlarmCategory(
+        name: 'Test',
+        color: Colors.red,
+        enabled: false,
       );
-
-      expect(alarm.label, 'Test Alarm');
-      expect(alarm.category, 'Default');
-      expect(alarm.sound, 'default_sound.mp3');
-      expect(alarm.vibrationPattern, [100, 200, 100]);
-      expect(alarm.snoozeDuration, Duration(minutes: 10));
-      expect(alarm.notes, 'This is a test alarm');
+      expect(category.name, 'Test');
+      expect(category.color, Colors.red);
+      expect(category.enabled, false);
     });
 
-    test('Alarm should toggle active status', () {
-      final alarm = Alarm(
-        time: DateTime.now(),
-        label: 'Test Alarm',
-        category: 'Default',
-        sound: 'default_sound.mp3',
-        vibrationPattern: [100, 200, 100],
-        snoozeDuration: Duration(minutes: 10),
-        notes: 'This is a test alarm',
+    test('should toggle enabled property', () {
+      final category = AlarmCategory(
+        name: 'Toggle',
+        color: Colors.green,
+        enabled: false,
       );
-
-      alarm.toggleActive();
-      expect(alarm.isActive, true);
-
-      alarm.toggleActive();
-      expect(alarm.isActive, false);
+      category.enabled = true;
+      expect(category.enabled, true);
+      category.enabled = false;
+      expect(category.enabled, false);
     });
   });
 }
