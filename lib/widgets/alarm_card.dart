@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/database_helper.dart';
 
 class AlarmCard extends StatefulWidget {
+  final int id; // Add this line
   final String label;
   final String time;
   final String repeatDays;
@@ -18,6 +20,7 @@ class AlarmCard extends StatefulWidget {
 
   const AlarmCard({
     super.key,
+    required this.id, // Add this line
     required this.label,
     required this.time,
     required this.repeatDays,
@@ -39,6 +42,11 @@ class AlarmCard extends StatefulWidget {
 
 class _AlarmCardState extends State<AlarmCard> {
   bool expanded = false;
+
+  Future<void> _handleDelete() async {
+    await DatabaseHelper().deleteAlarm(widget.id);
+    if (widget.onDelete != null) widget.onDelete!();
+  }
 
   String getDisplayRepeatDays() {
     final days = widget.repeatDays
@@ -197,7 +205,7 @@ class _AlarmCardState extends State<AlarmCard> {
                               _buildIconButton(
                                 icon: Icons.delete_rounded,
                                 color: Colors.red.shade400,
-                                onPressed: widget.onDelete,
+                                onPressed: _handleDelete, // <-- updated
                               ),
                             ],
                           ),

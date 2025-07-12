@@ -454,6 +454,7 @@ class _HomePageState extends State<HomePage> {
                         itemBuilder: (context, idx) {
                           final alarm = alarms[idx];
                           return AlarmCard(
+                            id: alarm['id'],
                             label: alarm['label'] ?? '',
                             time: alarm['time'] ?? '',
                             repeatDays: alarm['repeatDays'] ?? '',
@@ -466,6 +467,11 @@ class _HomePageState extends State<HomePage> {
                             note: alarm['note'] ?? '',
                             onToggle: (val) async {
                               await _updateAlarmEnabledInDb(alarm['id'], val);
+                            },
+                            onDelete: () async {
+                              await DatabaseHelper().deleteAlarm(alarm['id']);
+                              await _loadAlarmsFromDb();
+                              setState(() {}); // Refresh the list
                             },
                           );
                         },
@@ -510,6 +516,7 @@ class _HomePageState extends State<HomePage> {
                               )
                               .toList()[idx];
                           return AlarmCard(
+                            id: alarm['id'],
                             label: alarm['label'] ?? '',
                             time: alarm['time'] ?? '',
                             repeatDays: alarm['repeatDays'] ?? '',
@@ -522,6 +529,11 @@ class _HomePageState extends State<HomePage> {
                             note: alarm['note'] ?? '',
                             onToggle: (val) async {
                               await _updateAlarmEnabledInDb(alarm['id'], val);
+                            },
+                            onDelete: () async {
+                              await DatabaseHelper().deleteAlarm(alarm['id']);
+                              await _loadAlarmsFromDb();
+                              setState(() {}); // Refresh the list
                             },
                           );
                         },
@@ -576,6 +588,20 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
+              const SizedBox(height: 24),
+              Center(
+                child: Text(
+                  "Developed By: KAAF Developers"
+                  "\n"
+                  "Contact: +92-339-4098238",
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.black45,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 10),
             ],
           ),
         ),

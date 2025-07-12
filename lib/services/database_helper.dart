@@ -48,4 +48,9 @@ class DatabaseHelper {
       },
     );
   }
+
+  Future<int> deleteAlarm(int id) async {
+    final dbClient = await db;
+    return await dbClient.delete('alarms', where: 'id = ?', whereArgs: [id]);
+  }
 }
