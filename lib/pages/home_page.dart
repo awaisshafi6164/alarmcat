@@ -445,53 +445,6 @@ class _HomePageState extends State<HomePage> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 12),
-              if (selectedCategory == null)
-                (alarms.isNotEmpty)
-                    ? ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: alarms.length,
-                        itemBuilder: (context, idx) {
-                          final alarm = alarms[idx];
-                          return AlarmCard(
-                            id: alarm['id'],
-                            label: alarm['label'] ?? '',
-                            time: alarm['time'] ?? '',
-                            repeatDays: alarm['repeatDays'] ?? '',
-                            enabled: (alarm['enabled'] ?? 1) == 1,
-                            ringtone: alarm['ringtone'] ?? '',
-                            vibration: (alarm['vibration'] ?? 1) == 1,
-                            oneTime: (alarm['oneTime'] ?? 0) == 1,
-                            preAlarm: (alarm['preAlarm'] ?? 0) == 1,
-                            snooze: alarm['snooze'] ?? '',
-                            note: alarm['note'] ?? '',
-                            onToggle: (val) async {
-                              await _updateAlarmEnabledInDb(alarm['id'], val);
-                            },
-                            onDelete: () async {
-                              await DatabaseHelper().deleteAlarm(alarm['id']);
-                              await _loadAlarmsFromDb();
-                              setState(() {}); // Refresh the list
-                            },
-                          );
-                        },
-                      )
-                    : Card(
-                        elevation: 2,
-                        shape: Theme.of(context).cardTheme.shape,
-                        color: Theme.of(context).cardTheme.color,
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              "No alarms yet. Tap the '+' button to add one!",
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: Colors.black45),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                      ),
               if (selectedCategory != null)
                 (alarms
                         .where(
@@ -529,6 +482,26 @@ class _HomePageState extends State<HomePage> {
                             note: alarm['note'] ?? '',
                             onToggle: (val) async {
                               await _updateAlarmEnabledInDb(alarm['id'], val);
+                            },
+                            onEdit: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => AddAlarmPage(
+                                    isEdit: true,
+                                    label: alarm['label'] ?? '',
+                                    time: alarm['time'] ?? '',
+                                    category: alarm['category'] ?? '',
+                                    days: alarm['repeatDays'] ?? '',
+                                    ringtone: alarm['ringtone'] ?? 'Default',
+                                    vibration: (alarm['vibration'] ?? 1) == 1,
+                                    oneTime: (alarm['oneTime'] ?? 0) == 1,
+                                    preAlarm: (alarm['preAlarm'] ?? 0) == 1,
+                                    snooze: alarm['snooze'] ?? '5 minutes',
+                                    note: alarm['note'] ?? '',
+                                  ),
+                                ),
+                              );
                             },
                             onDelete: () async {
                               await DatabaseHelper().deleteAlarm(alarm['id']);

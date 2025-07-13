@@ -3,7 +3,31 @@ import '../models/alarm_category.dart';
 import '../services/database_helper.dart';
 
 class AddAlarmPage extends StatefulWidget {
-  const AddAlarmPage({super.key});
+  final bool isEdit;
+  final String? label;
+  final String? time;
+  final String? category;
+  final String? days;
+  final String? ringtone;
+  final bool? vibration;
+  final bool? oneTime;
+  final bool? preAlarm;
+  final String? snooze;
+  final String? note;
+  const AddAlarmPage({
+    super.key,
+    this.isEdit = false,
+    this.label,
+    this.time,
+    this.category,
+    this.days,
+    this.ringtone,
+    this.vibration,
+    this.oneTime,
+    this.preAlarm,
+    this.snooze,
+    this.note,
+  });
 
   @override
   State<AddAlarmPage> createState() => _AddAlarmPageState();
@@ -11,16 +35,17 @@ class AddAlarmPage extends StatefulWidget {
 
 class _AddAlarmPageState extends State<AddAlarmPage> {
   TimeOfDay? selectedTime;
-  String label = '';
+  late String label;
+  late TextEditingController labelController;
   AlarmCategory? selectedCategory;
   List<AlarmCategory> categories = [];
-  List<String> repeatDays = [];
-  String ringtone = 'Default';
-  bool vibration = true;
-  bool oneTime = false;
-  bool preAlarm = false;
-  String snooze = '5 minutes';
-  String note = '';
+  late List<String> repeatDays;
+  late String ringtone;
+  late bool vibration;
+  late bool oneTime;
+  late bool preAlarm;
+  late String snooze;
+  late String note;
 
   final List<String> allDays = [
     'Mon',
@@ -41,6 +66,39 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
   @override
   void initState() {
     super.initState();
+    label = widget.label ?? '';
+    labelController = TextEditingController(text: label);
+    ringtone = widget.ringtone ?? 'Default';
+    vibration = widget.vibration ?? true;
+    oneTime = widget.oneTime ?? false;
+    preAlarm = widget.preAlarm ?? false;
+    snooze = widget.snooze ?? '5 minutes';
+    note = widget.note ?? '';
+    if (widget.days != null && widget.days!.isNotEmpty) {
+      // When editing: use the days from the existing alarm
+      repeatDays = widget.days!
+          .split(',')
+          .map((d) => d.trim())
+          .where((d) => allDays.contains(d))
+          .toList();
+    } else {
+      // For new alarms: start with no days selected
+      repeatDays = [];
+    }
+    if (widget.time != null && widget.time!.isNotEmpty) {
+      // Try parsing both 24h and 12h formats
+      String timeStr = widget.time!;
+      // Remove any AM/PM if present
+      timeStr = timeStr.replaceAll(RegExp(r'[^0-9:]'), '');
+      final parts = timeStr.split(":");
+      if (parts.length == 2) {
+        final hour = int.tryParse(parts[0]);
+        final minute = int.tryParse(parts[1]);
+        if (hour != null && minute != null) {
+          selectedTime = TimeOfDay(hour: hour, minute: minute);
+        }
+      }
+    }
     _loadCategoriesFromDb();
   }
 
@@ -61,7 +119,14 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
     loaded.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
       categories = loaded;
-      selectedCategory = categories.isNotEmpty ? categories.first : null;
+      if (widget.category != null && widget.category!.isNotEmpty) {
+        selectedCategory = categories.firstWhere(
+          (cat) => cat.name == widget.category,
+          orElse: () => categories.first,
+        );
+      } else {
+        selectedCategory = categories.isNotEmpty ? categories.first : null;
+      }
     });
   }
 
@@ -105,7 +170,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
       ).scaffoldBackgroundColor, // Use theme background
       appBar: AppBar(
         title: Text(
-          'Add New Alarm',
+          widget.isEdit ? 'Edit Alarm' : 'Add New Alarm',
           style: Theme.of(context).appBarTheme.titleTextStyle,
         ), // Consistent title style
         iconTheme: Theme.of(
@@ -170,6 +235,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                   vertical: 12,
                 ),
               ),
+              controller: labelController,
               onChanged: (v) => label = v,
             ),
             const SizedBox(height: 24),
@@ -265,7 +331,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                   onSelected: (val) {
                     setState(() {
                       if (val) {
-                        repeatDays.add(day);
+                        if (!repeatDays.contains(day)) repeatDays.add(day);
                       } else {
                         repeatDays.remove(day);
                       }
@@ -406,6 +472,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             const SizedBox(height: 8),
             TextField(
               maxLines: 2,
+              controller: TextEditingController(text: note),
               decoration: InputDecoration(
                 hintText: 'Add a note...',
                 border: OutlineInputBorder(
@@ -463,9 +530,9 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                         Navigator.pop(context, true);
                       }
                     },
-                    child: const Text(
-                      'Add Alarm',
-                      style: TextStyle(
+                    child: Text(
+                      widget.isEdit ? 'Edit Alarm' : 'Add Alarm',
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
