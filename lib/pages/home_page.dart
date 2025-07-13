@@ -484,24 +484,32 @@ class _HomePageState extends State<HomePage> {
                               await _updateAlarmEnabledInDb(alarm['id'], val);
                             },
                             onEdit: () async {
-                              await Navigator.push(
+                              print(
+                                '[HomePage] Editing alarm with ID: ${alarm['id']}',
+                              );
+                              final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => AddAlarmPage(
                                     isEdit: true,
+                                    id: alarm['id'],
                                     label: alarm['label'] ?? '',
                                     time: alarm['time'] ?? '',
                                     category: alarm['category'] ?? '',
                                     days: alarm['repeatDays'] ?? '',
-                                    ringtone: alarm['ringtone'] ?? 'Default',
+                                    ringtone: alarm['ringtone'] ?? '',
                                     vibration: (alarm['vibration'] ?? 1) == 1,
                                     oneTime: (alarm['oneTime'] ?? 0) == 1,
                                     preAlarm: (alarm['preAlarm'] ?? 0) == 1,
-                                    snooze: alarm['snooze'] ?? '5 minutes',
+                                    snooze: alarm['snooze'] ?? '',
                                     note: alarm['note'] ?? '',
                                   ),
                                 ),
                               );
+                              if (result == true) {
+                                await _loadAlarmsFromDb();
+                                setState(() {}); // Refresh the UI
+                              }
                             },
                             onDelete: () async {
                               await DatabaseHelper().deleteAlarm(alarm['id']);

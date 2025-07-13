@@ -4,6 +4,7 @@ import '../services/database_helper.dart';
 
 class AddAlarmPage extends StatefulWidget {
   final bool isEdit;
+  final int? id; // Add this line for alarm ID
   final String? label;
   final String? time;
   final String? category;
@@ -17,6 +18,7 @@ class AddAlarmPage extends StatefulWidget {
   const AddAlarmPage({
     super.key,
     this.isEdit = false,
+    this.id, // Add this line
     this.label,
     this.time,
     this.category,
@@ -66,6 +68,15 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
   @override
   void initState() {
     super.initState();
+    print(
+      '[AddAlarmPage] InitState - isEdit: ${widget.isEdit}, ID: ${widget.id}',
+    );
+    print('[AddAlarmPage] InitState - Alarm details:');
+    print('  Label: ${widget.label}');
+    print('  Time: ${widget.time}');
+    print('  Category: ${widget.category}');
+    print('  Days: ${widget.days}');
+
     label = widget.label ?? '';
     labelController = TextEditingController(text: label);
     ringtone = widget.ringtone ?? 'Default';
@@ -131,7 +142,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
   }
 
   // 3. When adding an alarm, set enabled: 1
-  Future<void> _addAlarmToDb() async {
+  Future<bool> _addAlarmToDb() async {
     if (selectedTime == null ||
         selectedCategory == null ||
         label.trim().isEmpty) {
@@ -142,9 +153,74 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
           ),
         ),
       );
-      return;
+      return false;
     }
+
+    try {
+      final db = await DatabaseHelper().db;
+      final alarmData = {
+        'time': selectedTime!.format(context),
+        'label': label,
+        'category': selectedCategory?.name ?? '',
+        'repeatDays': repeatDays.join(','),
+        'ringtone': ringtone,
+        'vibration': vibration ? 1 : 0,
+        'oneTime': oneTime ? 1 : 0,
+        'preAlarm': preAlarm ? 1 : 0,
+        'snooze': snooze,
+        'note': note,
+        'enabled': 1,
+      };
+      final id = await db.insert('alarms', alarmData);
+      print('[AddAlarmPage] Created new alarm with ID: $id');
+      print('[AddAlarmPage] Alarm data: $alarmData');
+      return true;
+    } catch (e) {
+      print('[AddAlarmPage] Error creating alarm: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error creating alarm. Please try again.'),
+        ),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> _updateAlarmInDb() async {
+    if (selectedTime == null ||
+        selectedCategory == null ||
+        label.trim().isEmpty ||
+        widget.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please fill all required fields: Time, Label, Category.',
+          ),
+        ),
+      );
+      return false;
+    }
+
     final db = await DatabaseHelper().db;
+
+    // First verify the alarm exists
+    final List<Map<String, dynamic>> existing = await db.query(
+      'alarms',
+      where: 'id = ?',
+      whereArgs: [widget.id],
+      limit: 1,
+    );
+
+    if (existing.isEmpty) {
+      print('[AddAlarmPage] Error: Alarm with ID ${widget.id} not found');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: Alarm not found. Please try again.'),
+        ),
+      );
+      return false;
+    }
+
     final alarmData = {
       'time': selectedTime!.format(context),
       'label': label,
@@ -156,10 +232,43 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
       'preAlarm': preAlarm ? 1 : 0,
       'snooze': snooze,
       'note': note,
-      'enabled': 1,
+      'enabled': existing.first['enabled'] ?? 1, // Preserve the enabled state
     };
-    final id = await db.insert('alarms', alarmData);
-    print('[AddAlarmPage] Added alarm to DB: id=$id, data=$alarmData');
+
+    try {
+      final rowsAffected = await db.update(
+        'alarms',
+        alarmData,
+        where: 'id = ?',
+        whereArgs: [widget.id],
+      );
+
+      if (rowsAffected > 0) {
+        print(
+          '[AddAlarmPage] Successfully updated alarm with ID: ${widget.id}',
+        );
+        print('[AddAlarmPage] Updated alarm data: $alarmData');
+        return true;
+      } else {
+        print(
+          '[AddAlarmPage] Error: No rows were updated for ID: ${widget.id}',
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error updating alarm. Please try again.'),
+          ),
+        );
+        return false;
+      }
+    } catch (e) {
+      print('[AddAlarmPage] Error updating alarm: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error updating alarm. Please try again.'),
+        ),
+      );
+      return false;
+    }
   }
 
   @override
@@ -522,12 +631,54 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                       ),
                     ),
                     onPressed: () async {
-                      await _addAlarmToDb();
-                      if (selectedTime != null &&
-                          selectedCategory != null &&
-                          label.trim().isNotEmpty &&
-                          Navigator.canPop(context)) {
-                        Navigator.pop(context, true);
+                      bool success = false;
+
+                      // Debug info before operation
+                      print('[AddAlarmPage] Save button pressed');
+                      print('  isEdit: ${widget.isEdit}');
+                      print('  ID: ${widget.id}');
+                      print('  Label: $label');
+                      print('  Time: ${selectedTime?.format(context)}');
+                      print('  Category: ${selectedCategory?.name}');
+
+                      // Validate fields first
+                      if (selectedTime == null ||
+                          selectedCategory == null ||
+                          label.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Please fill all required fields: Time, Label, Category.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      // Handle edit vs add
+                      if (widget.isEdit == true) {
+                        if (widget.id == null) {
+                          print(
+                            '[AddAlarmPage] Error: Edit mode but no ID provided',
+                          );
+                          return;
+                        }
+                        success = await _updateAlarmInDb();
+                      } else {
+                        success = await _addAlarmToDb();
+                      }
+
+                      // Debug info after operation
+                      if (success) {
+                        print('[AddAlarmPage] Operation successful');
+                        if (widget.isEdit) {
+                          print('  Updated alarm ID: ${widget.id}');
+                        }
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context, true);
+                        }
+                      } else {
+                        print('[AddAlarmPage] Operation failed');
                       }
                     },
                     child: Text(
