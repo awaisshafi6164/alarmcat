@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'permission_settings_page.dart';
+
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
@@ -14,14 +16,35 @@ class SettingsPage extends StatelessWidget {
         children: [
           ListTile(
             leading: const Icon(Icons.color_lens), // Consistent icon
-            title: Text('Theme & Personalization', style: Theme.of(context).textTheme.bodyMedium),
+            title: Text(
+              'Theme & Personalization',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
             onTap: () {
               // TODO: Implement theme settings
             },
           ),
           ListTile(
+            leading: const Icon(Icons.alarm), // Consistent icon
+            title: Text(
+              'Permissions',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PermissionSettingsPage(),
+                ),
+              );
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.cloud_upload), // Consistent icon
-            title: Text('Cloud Backup & Sync', style: Theme.of(context).textTheme.bodyMedium),
+            title: Text(
+              'Cloud Backup & Sync',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
             trailing: Icon(Icons.lock, color: Colors.amber[700]),
             onTap: () {
               // TODO: Premium feature
