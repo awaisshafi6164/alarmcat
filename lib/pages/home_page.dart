@@ -3,7 +3,8 @@ import '../models/alarm_category.dart';
 import 'settings_page.dart';
 import 'add_alarm_page.dart';
 import 'category_detail_page.dart';
-import '../widgets/info_card.dart';
+import 'alarm_ring_screen.dart';
+import '../widgets/dashboard_stats_row.dart';
 import '../widgets/category_card.dart';
 import '../widgets/add_category_dialog.dart';
 import 'package:lottie/lottie.dart';
@@ -169,11 +170,11 @@ class _HomePageState extends State<HomePage> {
                 ).textTheme.bodyLarge?.copyWith(color: Colors.black54),
               ),
               const SizedBox(height: 16),
-              InfoCard(
+              DashboardStatsRow(
                 title1: "Active Alarms",
                 value1: "$activeAlarms",
                 title2: "Categories",
-                value2: "${activeCategories}/${totalCategories}",
+                value2: "$activeCategories/$totalCategories",
               ),
               const SizedBox(height: 24),
               Row(
@@ -183,26 +184,30 @@ class _HomePageState extends State<HomePage> {
                     "Categories",
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.info_outline,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withOpacity(0.7),
-                    ),
-                    iconSize: 20,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Swipe a category from right to left for options (Settings, Edit, Delete).',
-                          ),
-                          duration: Duration(seconds: 5),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.info_outline,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.7),
                         ),
-                      );
-                    },
+                        iconSize: 20,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Swipe a category from right to left for options (Settings, Edit, Delete).',
+                              ),
+                              duration: Duration(seconds: 5),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -213,112 +218,128 @@ class _HomePageState extends State<HomePage> {
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors
+                              .black38 // Darker background in dark mode
+                        : Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: ListView.separated(
                     controller: _categoryScrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount:
-                        categories.length +
-                        2, // +1 for All Alarms, +1 for Add New Category
+                    itemCount: categories.length + 1, // +1 for All Alarms
                     separatorBuilder: (context, idx) {
                       // Divider only between real categories (not after All Alarms)
-                      if (idx == 0) {
-                        return const SizedBox.shrink();
-                      }
-                      // Show divider after every category, including after last, but not after Add New Category
-                      if (idx <= categories.length) {
-                        return Padding(
-                          padding: const EdgeInsets.only(left: 56.0),
-                          child: const Divider(
-                            height: 1,
-                            thickness: 1,
-                            endIndent: 16,
-                          ),
-                        );
-                      }
                       return const SizedBox.shrink();
                     },
                     itemBuilder: (context, idx) {
                       if (idx == 0) {
                         // All Alarms pseudo-category
-                        return InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () {
-                            setState(() {
-                              selectedCategory = null;
-                            });
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.10),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: selectedCategory == null
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Colors.transparent,
-                                width: 1.5,
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              setState(() {
+                                selectedCategory = null;
+                              });
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withOpacity(0.10),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: selectedCategory == null
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.transparent,
+                                  width: 1.5,
+                                ),
                               ),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 8,
-                              horizontal: 8,
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.alarm,
-                                  color: Colors.deepPurple,
-                                ),
-                                const SizedBox(width: 12),
-                                const Text(
-                                  'All Alarms',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 16,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.alarm,
+                                    color: Colors.deepPurple,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.deepPurple.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(8),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'All Alarms',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                  child: Text(
-                                    '${alarms.length}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          color: Colors.deepPurple,
-                                          fontWeight: FontWeight.bold,
+                                  const Spacer(),
+                                  // Alarm Count Badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).cardColor,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.deepPurple.withOpacity(
+                                          0.2,
                                         ),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '${alarms.length}',
+                                      style: TextStyle(
+                                        color: Colors.deepPurple,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      } else if (idx == categories.length + 1) {
-                        // Add New Category button
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: TextButton.icon(
-                            icon: const Icon(
-                              Icons.add_circle_outline,
-                              size: 20,
-                            ),
-                            label: const Text("Add New Category"),
-                            onPressed: _showAddCategoryDialog,
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              foregroundColor: Theme.of(
-                                context,
-                              ).colorScheme.primary,
+                                  const SizedBox(width: 12),
+                                  // Add Category Button
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: _showAddCategoryDialog,
+                                      child: Container(
+                                        height: 36,
+                                        width: 36,
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              Colors.deepPurple.shade400,
+                                              Colors.deepPurple.shade700,
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.deepPurple
+                                                  .withOpacity(0.3),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(
+                                          Icons.add,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         );
@@ -337,16 +358,49 @@ class _HomePageState extends State<HomePage> {
                           ),
                           endActionPane: ActionPane(
                             motion: const DrawerMotion(),
+                            extentRatio: 0.55, // Reduced width
                             children: [
-                              SlidableAction(
+                              CustomSlidableAction(
                                 onPressed: (context) => _showAddCategoryDialog(
                                   categoryToEdit: categoryItem,
                                 ),
-                                backgroundColor: Colors.green,
+                                backgroundColor: Colors.transparent,
                                 foregroundColor: Colors.white,
-                                icon: Icons.edit,
+                                padding: EdgeInsets.zero,
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    vertical: 8, // Smaller height
+                                    horizontal: 1, // Minimize spacing
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.green.shade400,
+                                        Colors.green.shade700,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(
+                                      12,
+                                    ), // Slightly smaller radius
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.green.withOpacity(0.3),
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Icon(
+                                    Icons.edit,
+                                    color: Colors.white,
+                                    size: 18, // Slightly smaller icon
+                                  ),
+                                ),
                               ),
-                              SlidableAction(
+                              CustomSlidableAction(
                                 onPressed: (context) async {
                                   await _deleteCategoryFromDb(idx - 1);
                                   // Optionally scroll to top if list is now short
@@ -365,11 +419,41 @@ class _HomePageState extends State<HomePage> {
                                     );
                                   }
                                 },
-                                backgroundColor: Colors.red,
+                                backgroundColor: Colors.transparent,
                                 foregroundColor: Colors.white,
-                                icon: Icons.delete,
+                                padding: EdgeInsets.zero,
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.red.shade400,
+                                        Colors.red.shade700,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.red.withOpacity(0.3),
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Icon(
+                                    Icons.delete,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
                               ),
-                              SlidableAction(
+                              CustomSlidableAction(
                                 onPressed: (context) {
                                   setState(() {
                                     // open category detail page
@@ -383,9 +467,39 @@ class _HomePageState extends State<HomePage> {
                                     );
                                   });
                                 },
-                                backgroundColor: Colors.black,
+                                backgroundColor: Colors.transparent,
                                 foregroundColor: Colors.white,
-                                icon: Icons.settings,
+                                padding: EdgeInsets.zero,
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.grey.shade700,
+                                        Colors.black,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Icon(
+                                    Icons.settings,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -587,19 +701,54 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddAlarmPage()),
-          );
-          if (result == true) {
-            await _loadAlarmsFromDb();
-            await _loadCategoriesFromDb(); // Also reload categories
-            setState(() {});
-          }
-        },
-        child: const Icon(Icons.add, size: 32),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // Test button for AlarmRingScreen
+          FloatingActionButton.small(
+            heroTag: 'test_alarm',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AlarmRingScreen(
+                    alarmLabel: 'Test Alarm',
+                    category: 'Test Category',
+                    note: 'This is a test alarm to check the ring screen',
+                    ringtone: 'default_ringtone.mp3',
+                    onDismiss: () {
+                      Navigator.pop(context);
+                    },
+                    onSnooze: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Snoozed for 5 minutes')),
+                      );
+                      Navigator.pop(context);
+                    },
+                  ),
+                ),
+              );
+            },
+            child: const Icon(Icons.alarm_on, size: 24),
+          ),
+          const SizedBox(height: 16),
+          // Original Add Alarm Button
+          FloatingActionButton(
+            heroTag: 'add_alarm',
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AddAlarmPage()),
+              );
+              if (result == true) {
+                await _loadAlarmsFromDb();
+                await _loadCategoriesFromDb(); // Also reload categories
+                setState(() {});
+              }
+            },
+            child: const Icon(Icons.add, size: 32),
+          ),
+        ],
       ),
     );
   }

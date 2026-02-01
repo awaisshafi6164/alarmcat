@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../models/alarm_category.dart'; // Import the AlarmCategory model
+import '../models/alarm_category.dart';
 
 class CategoryCard extends StatelessWidget {
   final AlarmCategory category;
   final VoidCallback onTap;
-  final ValueChanged<bool>? onToggle; // Make nullable
-  final int alarmCount; // New parameter
+  final ValueChanged<bool>? onToggle;
+  final int alarmCount;
   final bool isSelected;
 
   const CategoryCard({
@@ -13,72 +13,103 @@ class CategoryCard extends StatelessWidget {
     required this.category,
     required this.onTap,
     required this.onToggle,
-    required this.alarmCount, // New parameter
+    required this.alarmCount,
     this.isSelected = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Determine gradient based on category enabled state
+    // Use category color but deeper for gradient effect
+    final startColor = category.enabled
+        ? category.color.withOpacity(0.85)
+        : Colors.grey.withOpacity(0.3);
+    final endColor = category.enabled
+        ? category.color
+        : Colors.grey.withOpacity(0.2);
+
+    final textColor = category.enabled ? Colors.white : Colors.grey.shade400;
+
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        // Remove background and shadow, only keep the bar
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        margin: const EdgeInsets.symmetric(
+          vertical: 6,
+          horizontal: 4,
+        ), // Added margin for spacing
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [startColor, endColor],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            if (category.enabled)
+              BoxShadow(
+                color: category.color.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+          ],
+          border: isSelected
+              ? Border.all(color: Colors.white.withOpacity(0.8), width: 2)
+              : null,
+        ),
         child: Row(
           children: [
+            // Icon / Emoji Area
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: category.emoji != null && category.emoji!.isNotEmpty
+                  ? Text(category.emoji!, style: const TextStyle(fontSize: 22))
+                  : Icon(
+                      category.icon ?? Icons.label_outline,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+            ),
+            const SizedBox(width: 16),
+            // Text Area
             Expanded(
-              child: Opacity(
-                opacity: category.enabled ? 1.0 : 0.5,
-                child: Row(
-                  children: [
-                    if (category.emoji != null && category.emoji!.isNotEmpty)
-                      Text(
-                        category.emoji!,
-                        style: TextStyle(
-                          fontSize: 22,
-                          color: category.color.withOpacity(0.9),
-                        ),
-                      )
-                    else if (category.icon != null)
-                      Icon(category.icon!, color: category.color, size: 26)
-                    else
-                      Icon(
-                        Icons.label_outline,
-                        color: category.color,
-                        size: 26,
-                      ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        category.name,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    category.name,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: textColor,
+                      fontWeight: FontWeight.bold,
                     ),
-                    Text(
-                      "$alarmCount alarm${alarmCount == 1 ? '' : 's'}", // Show actual alarm count
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.color?.withOpacity(0.7),
-                      ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "$alarmCount alarm${alarmCount == 1 ? '' : 's'}",
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: textColor.withOpacity(0.8),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 10), // Spacing before switch
+            // Toggle Switch
             if (onToggle != null)
-              Transform.scale(
-                scale: 0.85, // Adjusted scale
-                child: Switch(
-                  value: category.enabled,
-                  activeColor: Colors.blueGrey,
-                  onChanged: onToggle,
-                  materialTapTargetSize:
-                      MaterialTapTargetSize.shrinkWrap, // Reduce tap area
-                ),
+              Switch(
+                value: category.enabled,
+                activeColor: Colors.white,
+                activeTrackColor: Colors.white.withOpacity(0.3),
+                inactiveThumbColor: Colors.grey.shade400,
+                inactiveTrackColor: Colors.black12,
+                onChanged: onToggle,
               ),
           ],
         ),

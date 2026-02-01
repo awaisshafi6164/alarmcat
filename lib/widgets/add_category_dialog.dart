@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/database_helper.dart';
-import '../models/alarm_category.dart'; // Import AlarmCategory
+import '../models/alarm_category.dart';
 
 class AddCategoryDialog extends StatefulWidget {
   final Function(String name, String? emoji) onCategoryAdded;
@@ -81,89 +81,170 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
     }
   }
 
-  Future<void> deleteCategory() async {
-    if (widget.existingCategory == null) return;
-    final db = await DatabaseHelper().db;
-    // Delete all alarms for this category
-    await db.delete(
-      'alarms',
-      where: 'category = ?',
-      whereArgs: [widget.existingCategory!.name],
-    );
-    // Delete the category
-    await db.delete(
-      'categories',
-      where: 'name = ?',
-      whereArgs: [widget.existingCategory!.name],
-    );
-    Navigator.of(context).pop();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        widget.existingCategory == null ? 'Add New Category' : 'Edit Category',
-      ),
-      content: SingleChildScrollView(
-        // Added SingleChildScrollView for smaller screens
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Category Name',
-                  hintText: 'e.g., Work, Study',
-                  border: OutlineInputBorder(),
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      child: Container(
+        padding: EdgeInsets.zero,
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a category name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emojiController,
-                decoration: const InputDecoration(
-                  labelText: 'Emoji (optional)',
-                  hintText: 'e.g., 👍, 🚀',
-                  border: OutlineInputBorder(),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.deepPurple.shade700,
+                    Colors.deepPurple.shade400,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                maxLength:
-                    2, // Allow for emoji + skin tone modifier if any, or just one char
-                validator: (value) {
-                  // Optional: Add validation for emoji format if needed,
-                  // but for simplicity, we'll allow any short string.
-                  return null;
-                },
               ),
-            ],
-          ),
+              child: Row(
+                children: [
+                  Icon(
+                    widget.existingCategory == null
+                        ? Icons.add_circle
+                        : Icons.edit,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    widget.existingCategory == null
+                        ? 'New Category'
+                        : 'Edit Category',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Form
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    _buildTextField(
+                      controller: _nameController,
+                      label: 'Category Name',
+                      hint: 'e.g., Work, Study',
+                      icon: Icons.label,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter a name';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      controller: _emojiController,
+                      label: 'Emoji (Optional)',
+                      hint: 'e.g., 🚀',
+                      icon: Icons.emoji_emotions,
+                      maxLength: 2,
+                    ),
+                    const SizedBox(height: 24),
+                    // Action Buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.grey,
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: _submit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepPurple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                          ),
+                          child: Text(
+                            widget.existingCategory == null ? 'Create' : 'Save',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-      actions: <Widget>[
-        TextButton(
-          child: const Text('Cancel'),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    String? Function(String?)? validator,
+    int? maxLength,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLength: maxLength,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, color: Colors.deepPurple.shade300),
+        filled: true,
+        fillColor: Colors.deepPurple.withOpacity(0.05),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
         ),
-        ElevatedButton(
-          onPressed: _submit,
-          child: Text(widget.existingCategory == null ? 'Add' : 'Save'),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
         ),
-      ],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
-      backgroundColor: Theme.of(context).cardColor,
-      titleTextStyle: Theme.of(
-        context,
-      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
+        ),
+        counterText: "", // Hide character counter
+      ),
+      validator: validator,
     );
   }
 }
